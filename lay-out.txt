@@ -1,0 +1,101 @@
+src/
+│
+├── app/                    # App Router pages
+│   ├── (auth)/
+│   │   ├── login/
+│   │   └── register/
+│   │
+│   ├── dashboard/
+│   │   ├── users/
+│   │   ├── products/
+│   │   └── page.tsx
+│   │
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── globals.css
+│
+├── components/
+│   ├── ui/                 # Reusable UI components
+│   │   ├── Button.tsx
+│   │   ├── Input.tsx
+│   │   └── Modal.tsx
+│   │
+│   ├── layout/
+│   │   ├── Navbar.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── Footer.tsx
+│   │
+│   └── common/
+│       ├── Loading.tsx
+│       └── ErrorMessage.tsx
+│
+├── features/               # Feature-based modules
+│   ├── auth/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── services/
+│   │   ├── types/
+│   │   └── schemas/
+│   │
+│   └── users/
+│       ├── components/
+│       ├── hooks/
+│       ├── services/
+│       ├── types/
+│       └── schemas/
+│
+├── services/               # Global API services
+│   ├── api.ts
+│   ├── auth.service.ts
+│   └── user.service.ts
+│
+├── hooks/                  # Shared custom hooks
+│   ├── useAuth.ts
+│   └── useDebounce.ts
+│
+├── store/                  # Zustand/Redux store
+│   ├── authStore.ts
+│   └── userStore.ts
+│
+├── lib/                    # Third-party configs
+│   ├── axios.ts
+│   ├── react-query.ts
+│   └── utils.ts
+│
+├── types/                  # Global types
+│   ├── api.ts
+│   └── user.ts
+│
+├── constants/
+│   ├── routes.ts
+│   └── roles.ts
+│
+├── schemas/                # Zod validation schemas
+│   ├── auth.schema.ts
+│   └── user.schema.ts
+│
+├── middleware/
+│   └── auth.ts
+│
+└── assets/
+    ├── images/
+    ├── icons/
+    └── fonts/
+
+-----------------------------------------
+
+src/
+├── app/
+│   ├── login/
+│   │   └── page.tsx
+│   ├── signup/
+│   │   └── page.tsx
+│   └── layout.tsx
+│
+├── components/
+│   └── auth/
+│       ├── LoginForm.tsx
+│       └── SignupForm.tsx
+│
+└── services/
+    └── auth.service.ts
