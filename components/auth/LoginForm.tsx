@@ -30,7 +30,7 @@ export default function LoginForm() {
 
       // Save token and redirect
       localStorage.setItem("token", data.token);
-      alert("Login successful!");
+      // alert("Login successful!");
       window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err.message);
