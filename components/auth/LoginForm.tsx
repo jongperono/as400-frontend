@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import dotenv from "dotenv";
+
+// dotenv.config();
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LoginForm() {
   const [username, setUsername] = useState("");
@@ -16,7 +20,8 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3008/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
