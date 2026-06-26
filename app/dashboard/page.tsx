@@ -6,23 +6,36 @@ import { useRouter } from "next/navigation";
 // Define the modules/apps available in the sidebar
 type Tab = "overview" | "users" | "jobs" | "spool" | "settings";
 
+interface Application {
+  id: number;
+  name: string;
+  url: string;
+}
+
 interface UserProfile {
   UPUPRF?: string;
   UPTEXT?: string;
   [key: string]: any;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("USER");
+  const [applications, setApplications] = useState<Application[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   // State for Users view
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [userQuery, setUserQuery] = useState("");
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage, setUsersPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
 
   // Simulated AS400 Active Jobs
   const [activeJobs, setActiveJobs] = useState([
@@ -66,27 +79,46 @@ export default function DashboardPage() {
       router.push("/");
     } else {
       const payload = parseToken(token);
-      if (payload && payload.username) {
+      if (payload?.username) {
         setUsername(payload.username);
       }
+
+      const savedApps = localStorage.getItem("applications");
+      console.log(savedApps, 'apps');
+
+      if (savedApps) {
+        setApplications(JSON.parse(savedApps));
+      }
+
       setLoading(false);
     }
   }, [router]);
 
   // Handle live users fetching
-  const fetchUsersList = async (query = "") => {
+  const fetchUsersList = async (
+    query = "",
+    page = 1,
+    limit = usersPerPage
+  ) => {
     setUsersLoading(true);
     setUsersError("");
+
     try {
-      const url = query
-        ? `http://localhost:3008/users?useraccount=${encodeURIComponent(query)}`
-        : "http://localhost:3008/users";
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      if (query) params.append("useraccount", query);
+
+      const res = await fetch(`${API_URL}/users?${params.toString()}`);
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch users");
-      }
-      setUsers(Array.isArray(data) ? data : []);
+
+      if (!res.ok) throw new Error(data.error || "Failed to fetch users");
+
+      const list: UserProfile[] = Array.isArray(data) ? data : (data.data || []);
+
+      setAllUsers(list);
+      setTotalPages(Math.ceil(list.length / limit));
+      setCurrentPage(1);
+      // Slice for first page
+      setUsers(list.slice(0, limit));
     } catch (err: any) {
       setUsersError(err.message || "An error occurred while fetching users");
     } finally {
@@ -258,21 +290,37 @@ export default function DashboardPage() {
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                  {Array.from({ length: 10 }, (_, i) => (
-                    <div
-                      key={i + 1}
-                      className="group relative flex flex-col items-center justify-center rounded-xl bg-white p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md hover:border-blue-300 hover:bg-blue-50 cursor-pointer"
+                  {applications.map((app) => (
+                    <a
+                      key={app.id}
+                      href={app.url}
+                      className="group relative flex flex-col items-center justify-center rounded-xl bg-white p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md hover:border-blue-300 hover:bg-blue-50"
                     >
                       <div className="mb-4 rounded-full bg-blue-50 p-4 text-blue-600 group-hover:scale-110 group-hover:bg-blue-100 transition-transform">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-7 w-7"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                          />
                         </svg>
                       </div>
+
                       <h3 className="text-md font-semibold text-slate-800 text-center">
-                        Application {i + 1}
+                        {app.name}
                       </h3>
-                      <p className="text-xs text-slate-400 mt-1 font-mono">SYS-APP-{100 + i}</p>
-                    </div>
+
+                      <p className="text-xs text-slate-400 mt-1 font-mono">
+                        {app.url}
+                      </p>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -342,10 +390,10 @@ export default function DashboardPage() {
                             <td className="p-3 font-mono font-bold text-blue-600">{u.UPUPRF || "N/A"}</td>
                             <td className="p-3 text-slate-700 font-medium">{u.UPTEXT || u.TEXT || "N/A"}</td>
                             <td className="p-3 text-xs text-slate-400 font-mono">
-                              {Object.entries(u)
+                              {/* {Object.entries(u)
                                 .filter(([k]) => k !== "UPUPRF" && k !== "UPTEXT" && k !== "TEXT")
                                 .map(([k, v]) => `${k}: ${v}`)
-                                .join(" | ") || "None"}
+                                .join(" | ") || "None"} */}
                             </td>
                           </tr>
                         ))}
