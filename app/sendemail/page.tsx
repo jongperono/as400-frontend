@@ -35,12 +35,81 @@ export default function SendEmailPage() {
     const [usersError, setUsersError] = useState("");
 
     const [releaseDate, setReleaseDate] = useState("");
+    const [showDialog, setShowDialog] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [status, setStatus] = useState("");
+
+    const formatReleaseDate = (releaseDate: string): string => {
+        const [year, month, day] = releaseDate.split("-");
+
+        return `${Number(month)}/${Number(day)}/${year}`;
+    };
     // Simulated AS400 Active Jobs
-    const handleSubmit = () => {
-        console.log({
-            releaseDate,
-        });
-    }
+    const formattedDate = formatReleaseDate(releaseDate);
+
+    const handleSubmit = async () => {
+        try {
+            setProcessing(true);
+            setProgress(10);
+            setStatus("Connecting to server...");
+
+            // Step 1 - Fetch released checks from AS400
+            const getRes = await fetch(
+                `${API_URL}/send-email/released-checks?date=${encodeURIComponent(formattedDate)}`
+            );
+
+            if (!getRes.ok) {
+                const err = await getRes.json();
+                throw new Error(err.error || "Failed to fetch released checks");
+            }
+            const releasedChecks = await getRes.json();
+
+
+            setProgress(45);
+            setStatus(`Fetched ${releasedChecks.length} released checks...`);
+
+            // Step 2 - Save to MySQL
+            const postRes = await fetch(
+                `${API_URL}/send-email/released-checks`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        date: formattedDate,
+                        checks: releasedChecks,
+                    }),
+                }
+            );
+
+            if (!postRes.ok) {
+                const err = await postRes.json();
+                throw new Error(err.error || "Failed to save released checks");
+            }
+            const result = await postRes.json();
+
+            setProgress(100);
+            setStatus(
+                `Completed. ${result.recordsProcessed} records synchronized.`
+            );
+
+            setTimeout(() => {
+                setShowDialog(false);
+                setProcessing(false);
+                setProgress(0);
+                setStatus("");
+            }, 1500);
+
+        } catch (err: any) {
+            alert(err.message);
+
+            setProcessing(false);
+            setProgress(0);
+            setStatus("");
+        }
+    };
     const [releasedChecks, setReleasedChecks] = useState([
         { job: "QZDASOINIT", user: "QUSER", type: "PJ", status: "RUN", cpu: "0.2" },
         { job: "QPADEV0001", user: "JONG", type: "INT", status: "DSPW", cpu: "1.4" },
@@ -185,7 +254,7 @@ export default function SendEmailPage() {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                             </svg>
-                            User Profiles
+                            Generate Release Date
                         </button>
 
                         {/* <button
@@ -315,17 +384,74 @@ export default function SendEmailPage() {
                                             />
                                         </div>
 
-
-
                                         <button
+                                            onClick={() => setShowDialog(true)}
+                                            className="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700"
+                                        >
+                                            Generate Email List
+                                        </button>
+
+                                        {/* <button
                                             onClick={handleSubmit}
                                             className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
                                         >
                                             Generate Report
-                                        </button>
+                                        </button> */}
                                     </div>
 
+                                    {showDialog && (
+                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                                            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+                                                <h2 className="mb-4 text-xl font-semibold">
+                                                    Released Checks
+                                                </h2>
 
+                                                <label className="mb-2 block text-sm font-medium">
+                                                    Release Date
+                                                </label>
+
+                                                <input
+                                                    type="date"
+                                                    value={releaseDate}
+                                                    onChange={(e) => setReleaseDate(e.target.value)}
+                                                    className="w-full rounded border p-2"
+                                                />
+
+                                                {processing && (
+                                                    <>
+                                                        <div className="mt-6 h-4 overflow-hidden rounded-full bg-gray-200">
+                                                            <div
+                                                                className="h-full bg-blue-600 transition-all duration-300"
+                                                                style={{ width: `${progress}%` }}
+                                                            />
+                                                        </div>
+
+                                                        <p className="mt-2 text-sm text-gray-600">
+                                                            {status}
+                                                        </p>
+                                                    </>
+                                                )}
+
+                                                <div className="mt-6 flex justify-end gap-3">
+                                                    <button
+                                                        disabled={processing}
+                                                        onClick={() => setShowDialog(false)}
+                                                        className="rounded border px-4 py-2"
+                                                    >
+                                                        Cancel
+                                                    </button>
+
+                                                    <button
+                                                        disabled={processing || !releaseDate}
+                                                        onClick={handleSubmit}
+                                                        className="rounded bg-blue-600 px-4 py-2 text-white"
+                                                    >
+                                                        {processing ? "Processing..." : "Process"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             );

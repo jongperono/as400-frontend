@@ -381,7 +381,7 @@ export default function DashboardPage() {
                         <tr className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider border-b">
                           <th className="p-3">User Profile (UPUPRF)</th>
                           <th className="p-3">Description / Name (UPTEXT)</th>
-                          <th className="p-3">Additional Record Data</th>
+                          <th className="p-3">Status (UPSTAT)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -390,6 +390,7 @@ export default function DashboardPage() {
                             <td className="p-3 font-mono font-bold text-blue-600">{u.UPUPRF || "N/A"}</td>
                             <td className="p-3 text-slate-700 font-medium">{u.UPTEXT || u.TEXT || "N/A"}</td>
                             <td className="p-3 text-xs text-slate-400 font-mono">
+                              {u.UPSTAT}
                               {/* {Object.entries(u)
                                 .filter(([k]) => k !== "UPUPRF" && k !== "UPTEXT" && k !== "TEXT")
                                 .map(([k, v]) => `${k}: ${v}`)
