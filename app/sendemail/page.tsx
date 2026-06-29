@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ReactElement } from "react";
 
-type Tab = "dashboard" | "generate";
+type Tab = "dashboard" | "generate" | "headers" | "details";
 
 interface Application { id: number; name: string; url: string; }
 
@@ -30,6 +30,20 @@ function formatDisplay(dateInput: string): string {
     return `${months[Number(m)-1]} ${Number(d)}, ${y}`;
 }
 
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(value);
+};
+
+const formatDate = (dateStr: string) => {
+    if (!dateStr) return "—";
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
+    } catch {
+        return dateStr;
+    }
+};
+
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const IconDashboard = () => (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -41,6 +55,16 @@ const IconMail = () => (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
 );
+const IconHeaders = () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+);
+const IconDetails = () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+);
 const IconCheck = () => (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -50,6 +74,11 @@ const IconSpinner = () => (
     <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+    </svg>
+);
+const IconSearch = () => (
+    <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
     </svg>
 );
 
@@ -76,6 +105,22 @@ export default function SendEmailPage() {
     const [done, setDone] = useState(false);
     const [lastResult, setLastResult] = useState<{ headersProcessed: number; detailsProcessed: number } | null>(null);
     const [error, setError] = useState("");
+
+    // Headers pagination & search
+    const [headers, setHeaders] = useState<any[]>([]);
+    const [headersSearch, setHeadersSearch] = useState("");
+    const [headersLoading, setHeadersLoading] = useState(false);
+    const [headersPage, setHeadersPage] = useState(1);
+    const [headersTotal, setHeadersTotal] = useState(0);
+    const headersLimit = 10;
+
+    // Details pagination & search
+    const [details, setDetails] = useState<any[]>([]);
+    const [detailsSearch, setDetailsSearch] = useState("");
+    const [detailsLoading, setDetailsLoading] = useState(false);
+    const [detailsPage, setDetailsPage] = useState(1);
+    const [detailsTotal, setDetailsTotal] = useState(0);
+    const detailsLimit = 10;
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -132,6 +177,63 @@ export default function SendEmailPage() {
         }
     };
 
+    // ─── Fetch functions ─────────────────────────────────────────────────────
+    const fetchHeadersList = async (page = 1, query = "") => {
+        setHeadersLoading(true);
+        try {
+            const params = new URLSearchParams({
+                page: String(page),
+                limit: String(headersLimit),
+                search: query,
+            });
+            const res = await fetch(`${API_URL}/send-email/payment-headers?${params.toString()}`);
+            if (!res.ok) throw new Error("Failed to load headers");
+            const data = await res.json();
+            setHeaders(data.rows || []);
+            setHeadersTotal(data.total || 0);
+            setHeadersPage(page);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setHeadersLoading(false);
+        }
+    };
+
+    const fetchDetailsList = async (page = 1, query = "") => {
+        setDetailsLoading(true);
+        try {
+            const params = new URLSearchParams({
+                page: String(page),
+                limit: String(detailsLimit),
+                search: query,
+            });
+            const res = await fetch(`${API_URL}/send-email/payment-details?${params.toString()}`);
+            if (!res.ok) throw new Error("Failed to load details");
+            const data = await res.json();
+            setDetails(data.rows || []);
+            setDetailsTotal(data.total || 0);
+            setDetailsPage(page);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setDetailsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === "headers") {
+            fetchHeadersList(1, headersSearch);
+        } else if (activeTab === "details") {
+            fetchDetailsList(1, detailsSearch);
+        }
+    }, [activeTab]);
+
+    const viewDetailsForCheck = (checkNo: string) => {
+        setDetailsSearch(checkNo);
+        setActiveTab("details");
+        fetchDetailsList(1, checkNo);
+    };
+
     if (loading) return (
         <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
             <div className="flex flex-col items-center gap-4">
@@ -142,10 +244,11 @@ export default function SendEmailPage() {
     );
 
     return (
-        <div className="flex min-h-screen bg-slate-100 text-slate-800">
+        <div className="flex min-h-screen bg-slate-100 text-slate-800" style={{ fontFamily: "'Inter', sans-serif" }}>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
             {/* ── Sidebar ─────────────────────────────────────────── */}
-            <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col justify-between border-r border-slate-800/60 shadow-2xl">
+            <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col justify-between border-r border-slate-800/60 shadow-2xl shrink-0">
                 <div>
                     {/* Logo */}
                     <div className="p-6 border-b border-slate-800 flex items-center gap-3">
@@ -171,11 +274,13 @@ export default function SendEmailPage() {
                         {([
                             { id: "dashboard", label: "Dashboard", Icon: IconDashboard },
                             { id: "generate", label: "Generate Email List", Icon: IconMail },
+                            { id: "headers", label: "Payment Headers", Icon: IconHeaders },
+                            { id: "details", label: "Payment Details", Icon: IconDetails },
                         ] as { id: Tab; label: string; Icon: () => ReactElement }[]).map(({ id, label, Icon }) => (
                             <button key={id} onClick={() => setActiveTab(id)}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${activeTab === id
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 ${activeTab === id
                                     ? "bg-blue-600 text-white shadow-md shadow-blue-900/40"
-                                    : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}>
+                                    : "text-slate-400 hover:bg-slate-900 hover:text-white"}`}>
                                 <Icon />
                                 {label}
                             </button>
@@ -213,7 +318,14 @@ export default function SendEmailPage() {
                         <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Portal</Link>
                         <span>/</span>
                         <span className="font-semibold text-slate-800">Send Email</span>
-                        {activeTab === "generate" && <><span>/</span><span className="text-blue-600 font-semibold">Generate</span></>}
+                        {activeTab !== "dashboard" && (
+                            <>
+                                <span>/</span>
+                                <span className="text-blue-600 font-semibold uppercase text-xs tracking-wider">
+                                    {activeTab}
+                                </span>
+                            </>
+                        )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
                         <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -324,6 +436,238 @@ export default function SendEmailPage() {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* ── PAYMENT HEADERS TAB ── */}
+                    {activeTab === "headers" && (
+                        <div className="space-y-6 max-w-6xl mx-auto">
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                
+                                {/* Search Header */}
+                                <div className="p-6 border-b border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900">Payment Headers</h2>
+                                        <p className="text-slate-500 text-xs mt-0.5">Check batches synchronized from AS400</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                                        <div className="relative w-full sm:w-64">
+                                            <input
+                                                type="text"
+                                                placeholder="Search Check / Vendor / Company..."
+                                                className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                                                value={headersSearch}
+                                                onChange={e => setHeadersSearch(e.target.value)}
+                                                onKeyDown={e => { if (e.key === "Enter") fetchHeadersList(1, headersSearch); }}
+                                            />
+                                            <div className="absolute left-3 top-2.5"><IconSearch /></div>
+                                        </div>
+                                        <button
+                                            onClick={() => fetchHeadersList(1, headersSearch)}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-semibold transition-colors shrink-0"
+                                        >
+                                            Search
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Table content */}
+                                {headersLoading ? (
+                                    <div className="py-20 text-center text-slate-500">
+                                        <div className="h-8 w-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-3" />
+                                        <p className="text-xs text-slate-400">Loading headers from MySQL database...</p>
+                                    </div>
+                                ) : headers.length === 0 ? (
+                                    <div className="py-16 text-center text-slate-400">
+                                        <div className="h-12 w-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center mx-auto mb-3">
+                                            <IconSearch />
+                                        </div>
+                                        <p className="text-xs">No payment batch headers found.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100">
+                                                        <th className="p-4">Check Number</th>
+                                                        <th className="p-4">Vendor</th>
+                                                        <th className="p-4">Company</th>
+                                                        <th className="p-4">Email Address</th>
+                                                        <th className="p-4 text-right">Total Net</th>
+                                                        <th className="p-4">Release Date</th>
+                                                        <th className="p-4 text-center">Invoice Lines</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {headers.map((h, idx) => (
+                                                        <tr key={idx} className="hover:bg-slate-50/60 border-b border-slate-100 transition-colors">
+                                                            <td className="p-4 font-mono font-bold text-blue-600 text-sm">{h.check_number}</td>
+                                                            <td className="p-4">
+                                                                <p className="text-sm font-semibold text-slate-800">{h.vendor_name}</p>
+                                                                <p className="text-[10px] text-slate-400 font-mono">ID: {h.vendor_number}</p>
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <p className="text-sm font-semibold text-slate-800">{h.company_name}</p>
+                                                                <p className="text-[10px] text-slate-400 font-mono">Code: {h.company_number}</p>
+                                                            </td>
+                                                            <td className="p-4 text-slate-600 text-sm truncate max-w-xs">{h.email_address || "—"}</td>
+                                                            <td className="p-4 text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(h.total_amount)}</td>
+                                                            <td className="p-4 text-slate-500 text-xs font-mono">{formatDate(h.release_date)}</td>
+                                                            <td className="p-4 text-center">
+                                                                <button
+                                                                    onClick={() => viewDetailsForCheck(h.check_number)}
+                                                                    className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline px-3 py-1 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                                                >
+                                                                    View Details →
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Pagination Footer */}
+                                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                                            <p className="text-xs text-slate-500">
+                                                Showing page <span className="font-semibold text-slate-700">{headersPage}</span> of <span className="font-semibold text-slate-700">{Math.ceil(headersTotal / headersLimit) || 1}</span> ({headersTotal} items)
+                                            </p>
+                                            <div className="flex gap-1.5">
+                                                <button
+                                                    disabled={headersPage === 1}
+                                                    onClick={() => fetchHeadersList(headersPage - 1, headersSearch)}
+                                                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Previous
+                                                </button>
+                                                <button
+                                                    disabled={headersPage >= Math.ceil(headersTotal / headersLimit)}
+                                                    onClick={() => fetchHeadersList(headersPage + 1, headersSearch)}
+                                                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Next
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── PAYMENT DETAILS TAB ── */}
+                    {activeTab === "details" && (
+                        <div className="space-y-6 max-w-6xl mx-auto">
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                
+                                {/* Search Header */}
+                                <div className="p-6 border-b border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900">Payment Details</h2>
+                                        <p className="text-slate-500 text-xs mt-0.5">Individual invoice lines synchronized from AS400</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                                        <div className="relative w-full sm:w-64">
+                                            <input
+                                                type="text"
+                                                placeholder="Search Check / Invoice / Store..."
+                                                className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                                                value={detailsSearch}
+                                                onChange={e => setDetailsSearch(e.target.value)}
+                                                onKeyDown={e => { if (e.key === "Enter") fetchDetailsList(1, detailsSearch); }}
+                                            />
+                                            <div className="absolute left-3 top-2.5"><IconSearch /></div>
+                                        </div>
+                                        <button
+                                            onClick={() => fetchDetailsList(1, detailsSearch)}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-semibold transition-colors shrink-0"
+                                        >
+                                            Search
+                                        </button>
+                                        {detailsSearch && (
+                                            <button
+                                                onClick={() => {
+                                                    setDetailsSearch("");
+                                                    fetchDetailsList(1, "");
+                                                }}
+                                                className="border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg px-3 py-2 text-sm font-semibold transition-colors shrink-0"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Table content */}
+                                {detailsLoading ? (
+                                    <div className="py-20 text-center text-slate-500">
+                                        <div className="h-8 w-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-3" />
+                                        <p className="text-xs text-slate-400">Loading invoice details from MySQL database...</p>
+                                    </div>
+                                ) : details.length === 0 ? (
+                                    <div className="py-16 text-center text-slate-400">
+                                        <div className="h-12 w-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center mx-auto mb-3">
+                                            <IconSearch />
+                                        </div>
+                                        <p className="text-xs">No invoice detail lines found.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100">
+                                                        <th className="p-4">Invoice Number</th>
+                                                        <th className="p-4">Check Number</th>
+                                                        <th className="p-4">Store Name</th>
+                                                        <th className="p-4 text-right">Net Amount</th>
+                                                        <th className="p-4">Invoice Date</th>
+                                                        <th className="p-4">Company</th>
+                                                        <th className="p-4">Vendor</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {details.map((d, idx) => (
+                                                        <tr key={idx} className="hover:bg-slate-50/60 border-b border-slate-100 transition-colors">
+                                                            <td className="p-4 font-mono font-bold text-slate-900 text-sm">{d.invoice_number}</td>
+                                                            <td className="p-4 font-mono text-blue-600 text-sm">{d.check_number}</td>
+                                                            <td className="p-4 text-slate-700 text-sm font-semibold">{d.store_name}</td>
+                                                            <td className="p-4 text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(d.total_net)}</td>
+                                                            <td className="p-4 text-slate-500 text-xs font-mono">{formatDate(d.invoice_date)}</td>
+                                                            <td className="p-4 text-slate-600 font-mono text-xs">Code: {d.company_number}</td>
+                                                            <td className="p-4 text-slate-600 font-mono text-xs">ID: {d.vendor_number}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Pagination Footer */}
+                                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                                            <p className="text-xs text-slate-500">
+                                                Showing page <span className="font-semibold text-slate-700">{detailsPage}</span> of <span className="font-semibold text-slate-700">{Math.ceil(detailsTotal / detailsLimit) || 1}</span> ({detailsTotal} items)
+                                            </p>
+                                            <div className="flex gap-1.5">
+                                                <button
+                                                    disabled={detailsPage === 1}
+                                                    onClick={() => fetchDetailsList(detailsPage - 1, detailsSearch)}
+                                                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Previous
+                                                </button>
+                                                <button
+                                                    disabled={detailsPage >= Math.ceil(detailsTotal / detailsLimit)}
+                                                    onClick={() => fetchDetailsList(detailsPage + 1, detailsSearch)}
+                                                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Next
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     )}
                 </main>
