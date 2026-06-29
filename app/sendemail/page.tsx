@@ -49,50 +49,38 @@ export default function SendEmailPage() {
     const formattedDate = formatReleaseDate(releaseDate);
 
     const handleSubmit = async () => {
+        if (!releaseDate) {
+            alert("Please select a release date.");
+            return;
+        }
+
         try {
             setProcessing(true);
-            setProgress(10);
-            setStatus("Connecting to server...");
+            setProgress(20);
+            setStatus("Connecting to AS400...");
 
-            // Step 1 - Fetch released checks from AS400
-            const getRes = await fetch(
-                `${API_URL}/send-email/released-checks?date=${encodeURIComponent(formattedDate)}`
-            );
-
-            if (!getRes.ok) {
-                const err = await getRes.json();
-                throw new Error(err.error || "Failed to fetch released checks");
-            }
-            const releasedChecks = await getRes.json();
-
-
-            setProgress(45);
-            setStatus(`Fetched ${releasedChecks.length} released checks...`);
-
-            // Step 2 - Save to MySQL
             const postRes = await fetch(
                 `${API_URL}/send-email/released-checks`,
                 {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        date: formattedDate,
-                        checks: releasedChecks,
-                    }),
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ date: formattedDate }),
                 }
             );
 
             if (!postRes.ok) {
                 const err = await postRes.json();
-                throw new Error(err.error || "Failed to save released checks");
+                throw new Error(err.error || "Failed to process released checks");
             }
+
+            setProgress(80);
+            setStatus("Saving to database...");
+
             const result = await postRes.json();
 
             setProgress(100);
             setStatus(
-                `Completed. ${result.recordsProcessed} records synchronized.`
+                `Done. ${result.headersProcessed} checks, ${result.detailsProcessed} detail lines saved.`
             );
 
             setTimeout(() => {
@@ -100,11 +88,10 @@ export default function SendEmailPage() {
                 setProcessing(false);
                 setProgress(0);
                 setStatus("");
-            }, 1500);
+            }, 2000);
 
         } catch (err: any) {
             alert(err.message);
-
             setProcessing(false);
             setProgress(0);
             setStatus("");
@@ -454,8 +441,6 @@ export default function SendEmailPage() {
                                     )}
                                 </div>
                             </div>
-                            );
-
                         </div>
                     )}
 
@@ -471,7 +456,7 @@ export default function SendEmailPage() {
                                     <button
                                         onClick={() => {
                                             // Simulate a refresh by changing cpu slightly
-                                            setActiveJobs(jobs => jobs.map(j => ({
+                                            setReleasedChecks(jobs => jobs.map(j => ({
                                                 ...j,
                                                 cpu: (Math.random() * 2).toFixed(1)
                                             })));
