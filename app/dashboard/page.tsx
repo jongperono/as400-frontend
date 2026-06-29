@@ -2,23 +2,60 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import type { ReactElement } from "react";
 
-// Define the modules/apps available in the sidebar
 type Tab = "overview" | "users" | "jobs" | "spool" | "settings";
 
 interface Application {
   id: number;
   name: string;
   url: string;
+  description?: string;
+  slug?: string;
 }
 
 interface UserProfile {
   UPUPRF?: string;
   UPTEXT?: string;
+  UPSTAT?: string;
   [key: string]: any;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+const IconOverview = () => (
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+  </svg>
+);
+const IconUsers = () => (
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+const IconJobs = () => (
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+  </svg>
+);
+const IconSpool = () => (
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+);
+const IconSettings = () => (
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+const IconSearch = () => (
+  <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  </svg>
+);
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -34,8 +71,12 @@ export default function DashboardPage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage, setUsersPerPage] = useState(10);
+  const [usersPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
+
+  // Search filters for simulated lists
+  const [jobSearchQuery, setJobSearchQuery] = useState("");
+  const [spoolSearchQuery, setSpoolSearchQuery] = useState("");
 
   // Simulated AS400 Active Jobs
   const [activeJobs, setActiveJobs] = useState([
@@ -55,7 +96,6 @@ export default function DashboardPage() {
     { name: "QPDSPAJB", file: "2", job: "QPADEV0002", user: "ADMIN", date: "2026-06-20", pages: "7" },
   ];
 
-  // Helper function to decode JWT client-side
   const parseToken = (token: string) => {
     try {
       const base64Url = token.split(".")[1];
@@ -84,22 +124,15 @@ export default function DashboardPage() {
       }
 
       const savedApps = localStorage.getItem("applications");
-      console.log(savedApps, 'apps');
-
       if (savedApps) {
         setApplications(JSON.parse(savedApps));
       }
-
       setLoading(false);
     }
   }, [router]);
 
   // Handle live users fetching
-  const fetchUsersList = async (
-    query = "",
-    page = 1,
-    limit = usersPerPage
-  ) => {
+  const fetchUsersList = async (query = "") => {
     setUsersLoading(true);
     setUsersError("");
 
@@ -115,15 +148,22 @@ export default function DashboardPage() {
       const list: UserProfile[] = Array.isArray(data) ? data : (data.data || []);
 
       setAllUsers(list);
-      setTotalPages(Math.ceil(list.length / limit));
+      setTotalPages(Math.ceil(list.length / usersPerPage));
       setCurrentPage(1);
-      // Slice for first page
-      setUsers(list.slice(0, limit));
+      setUsers(list.slice(0, usersPerPage));
     } catch (err: any) {
       setUsersError(err.message || "An error occurred while fetching users");
     } finally {
       setUsersLoading(false);
     }
+  };
+
+  // Change page handler
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+    const start = (newPage - 1) * usersPerPage;
+    setUsers(allUsers.slice(start, start + usersPerPage));
   };
 
   // Fetch users when the Users tab becomes active
@@ -138,122 +178,128 @@ export default function DashboardPage() {
     router.push("/");
   };
 
+  // Filter lists based on search states
+  const filteredJobs = activeJobs.filter(j => 
+    j.job.toLowerCase().includes(jobSearchQuery.toLowerCase()) || 
+    j.user.toLowerCase().includes(jobSearchQuery.toLowerCase()) ||
+    j.status.toLowerCase().includes(jobSearchQuery.toLowerCase())
+  );
+
+  const filteredSpool = spoolFiles.filter(f => 
+    f.name.toLowerCase().includes(spoolSearchQuery.toLowerCase()) || 
+    f.job.toLowerCase().includes(spoolSearchQuery.toLowerCase()) ||
+    f.user.toLowerCase().includes(spoolSearchQuery.toLowerCase())
+  );
+
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white">
-        <div className="text-xl font-semibold tracking-wider animate-pulse">Loading AS400 Portal...</div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+          <p className="text-slate-400 text-sm tracking-wider animate-pulse">Loading AS400 Portal...</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="flex min-h-screen bg-slate-100 text-slate-800">
+  // Modern UI colors & icons for applications list
+  const getAppMeta = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes("email") || n.includes("mail") || n.includes("maildesk")) {
+      return {
+        bg: "from-blue-500 to-indigo-600 hover:shadow-blue-500/20",
+        iconBg: "bg-blue-50/20 text-white",
+        desc: "Automated invoice release & check printing synchronization.",
+        linkText: "Launch MailDesk",
+        tag: "Core Tool"
+      };
+    }
+    if (n.includes("clearance")) {
+      return {
+        bg: "from-purple-500 to-pink-600 hover:shadow-purple-500/20",
+        iconBg: "bg-purple-50/20 text-white",
+        desc: "Online clearance, department approvals & processing.",
+        linkText: "Clearance Portal",
+        tag: "HR"
+      };
+    }
+    if (n.includes("warehouse") || n.includes("inventory")) {
+      return {
+        bg: "from-amber-500 to-orange-600 hover:shadow-amber-500/20",
+        iconBg: "bg-amber-50/20 text-white",
+        desc: "Track raw inventories, warehouse dispatches & logs.",
+        linkText: "Manage Inventory",
+        tag: "Logistics"
+      };
+    }
+    return {
+      bg: "from-slate-600 to-slate-800 hover:shadow-slate-600/20",
+      iconBg: "bg-slate-50/20 text-white",
+      desc: "Legacy internal portal application.",
+      linkText: "Open App",
+      tag: "System"
+    };
+  };
 
-      {/* Sidebar Navigation */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col justify-between border-r border-slate-800 shadow-lg">
+  return (
+    <div className="flex min-h-screen bg-slate-50 text-slate-800" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+      {/* ── Sidebar ─────────────────────────────────────────── */}
+      <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col justify-between border-r border-slate-800/60 shadow-2xl shrink-0">
         <div>
-          {/* Logo / Header */}
-          <div className="p-6 border-b border-slate-800 flex items-center gap-3 bg-slate-950">
-            <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center font-bold text-white tracking-widest text-lg">
-              AS
-            </div>
+          {/* Logo */}
+          <div className="p-6 border-b border-slate-800/60 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center font-black text-white text-sm shadow-lg shadow-blue-900/40">AS</div>
             <div>
-              <h1 className="text-md font-bold text-white tracking-wide">AS400 Portal</h1>
-              <span className="text-xs text-green-500 font-mono flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-ping inline-block"></span>
-                SYSTEM ONLINE
+              <p className="text-sm font-bold text-white tracking-wide leading-tight">AS400 Portal</p>
+              <span className="text-xs text-emerald-400 font-mono flex items-center gap-1.5 mt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                ONLINE
               </span>
             </div>
           </div>
 
-          {/* Navigation Links */}
+          {/* Nav */}
           <nav className="p-4 space-y-1">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-150 ${activeTab === "overview"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-900/30"
-                : "hover:bg-slate-800 hover:text-white"
-                }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-              Overview / Apps
-            </button>
-
-            <button
-              onClick={() => setActiveTab("users")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-150 ${activeTab === "users"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-900/30"
-                : "hover:bg-slate-800 hover:text-white"
-                }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-              User Profiles
-            </button>
-
-            <button
-              onClick={() => setActiveTab("jobs")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-150 ${activeTab === "jobs"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-900/30"
-                : "hover:bg-slate-800 hover:text-white"
-                }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-              </svg>
-              Active Jobs
-            </button>
-
-            <button
-              onClick={() => setActiveTab("spool")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-150 ${activeTab === "spool"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-900/30"
-                : "hover:bg-slate-800 hover:text-white"
-                }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Spooled Files
-            </button>
-
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-150 ${activeTab === "settings"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-900/30"
-                : "hover:bg-slate-800 hover:text-white"
-                }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Settings
-            </button>
+            {([
+              { id: "overview", label: "Overview & Apps", Icon: IconOverview },
+              { id: "users", label: "User Profiles", Icon: IconUsers },
+              { id: "jobs", label: "Active Jobs", Icon: IconJobs },
+              { id: "spool", label: "Spooled Files", Icon: IconSpool },
+              { id: "settings", label: "System Settings", Icon: IconSettings }
+            ] as { id: Tab; label: string; Icon: () => ReactElement }[]).map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-lg text-sm font-semibold transition-all duration-150 ${activeTab === id
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-900/40"
+                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  }`}
+              >
+                <Icon />
+                {label}
+              </button>
+            ))}
           </nav>
         </div>
 
-        {/* User profile & Logout */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-mono font-bold text-xs uppercase">
-                {username.slice(0, 2)}
-              </div>
-              <div className="truncate w-32">
-                <p className="text-sm font-semibold text-white truncate">{username}</p>
-                <p className="text-xs text-slate-500 font-mono">AS400 USER</p>
-              </div>
+        {/* User profile & Sign Out */}
+        <div className="p-4 border-t border-slate-800/60 bg-slate-950 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-xs font-mono uppercase">
+              {username.slice(0, 2)}
+            </div>
+            <div className="truncate w-32">
+              <p className="text-sm font-semibold text-white truncate leading-snug">{username}</p>
+              <p className="text-[10px] text-slate-500 font-mono tracking-wider">AS400 USER</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full rounded bg-red-950/40 hover:bg-red-900 border border-red-900/30 py-2 text-xs font-semibold text-red-400 hover:text-white transition-all flex items-center justify-center gap-1"
+            className="w-full rounded-lg bg-slate-900 hover:bg-red-950/60 border border-slate-800 hover:border-red-900/60 py-2.5 text-xs font-semibold text-slate-400 hover:text-red-300 transition-all flex items-center justify-center gap-2"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
             Sign Out
@@ -261,98 +307,138 @@ export default function DashboardPage() {
         </div>
       </aside>
 
-      {/* Main Workspace */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      {/* ── Main Workspace ──────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
 
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex justify-between items-center px-8 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">System Mode</span>
-            <span className="bg-blue-50 text-blue-700 text-xs px-2.5 py-0.5 rounded-full border border-blue-100 font-bold font-mono">
-              PRODUCTION (QGPL)
+        <header className="h-14 bg-white border-b border-slate-200 flex justify-between items-center px-8 shadow-sm shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Library Mode</span>
+            <span className="bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-full border border-blue-100 font-bold tracking-wider">
+              QGPL (PRODUCTION)
             </span>
           </div>
-          <div className="text-sm text-slate-500 font-medium">
-            Active Connection: <span className="font-mono text-slate-900 font-semibold">{process.env.NEXT_PUBLIC_ODBC_SYSTEM || "10.30.0.200"}</span>
+          <div className="text-xs text-slate-500 font-medium flex items-center gap-2">
+            System Host: <span className="font-mono text-slate-900 font-bold bg-slate-100 px-2 py-0.5 rounded">{process.env.NEXT_PUBLIC_ODBC_SYSTEM || "10.30.0.200"}</span>
           </div>
         </header>
 
-        {/* Content Pane */}
-        <main className="flex-1 p-8">
+        {/* Content Area */}
+        <main className="flex-1 overflow-auto p-8">
 
-          {/* TAB 1: OVERVIEW */}
+          {/* ── TAB 1: OVERVIEW ── */}
           {activeTab === "overview" && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm">
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Welcome to your Dashboard</h2>
-                <p className="text-slate-600 mb-6 text-sm">
-                  You are securely logged into the AS400 Portal. Select a system application or browse module options below.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                  {applications.map((app) => (
-                    <a
-                      key={app.id}
-                      href={app.url}
-                      className="group relative flex flex-col items-center justify-center rounded-xl bg-white p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md hover:border-blue-300 hover:bg-blue-50"
-                    >
-                      <div className="mb-4 rounded-full bg-blue-50 p-4 text-blue-600 group-hover:scale-110 group-hover:bg-blue-100 transition-transform">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-7 w-7"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                          />
-                        </svg>
-                      </div>
-
-                      <h3 className="text-md font-semibold text-slate-800 text-center">
-                        {app.name}
-                      </h3>
-
-                      <p className="text-xs text-slate-400 mt-1 font-mono">
-                        {app.url}
-                      </p>
-                    </a>
-                  ))}
+            <div className="space-y-8 max-w-6xl mx-auto">
+              <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
+                <div className="relative z-10">
+                  <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back, {username}</h2>
+                  <p className="text-slate-500 text-sm">
+                    Select a module card below to begin system transactions or monitor background ODBC services.
+                  </p>
                 </div>
+                <div className="shrink-0 relative z-10">
+                  <Link
+                    href="/sendemail"
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-blue-500/20 transition-all text-sm"
+                  >
+                    Released Checks Sync →
+                  </Link>
+                </div>
+                {/* Subtle graphic background */}
+                <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-blue-50/40 to-transparent pointer-events-none" />
+              </div>
+
+              {/* Main Apps Grid */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Available Services</h3>
+                
+                {applications.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+                    No active application clearances granted to your group. Please contact the system administrator.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {applications.map((app) => {
+                      const meta = getAppMeta(app.name);
+                      const isLocalMail = app.name.toLowerCase().includes("mail") || app.name.toLowerCase().includes("email");
+                      // Map the MailDesk URL to the local React route if applicable
+                      const appUrl = isLocalMail ? "/sendemail" : app.url;
+
+                      return (
+                        <div
+                          key={app.id}
+                          className="group relative flex flex-col justify-between rounded-2xl bg-white border border-slate-200 p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                        >
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                                {meta.tag}
+                              </span>
+                              <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-white ring-1 ring-emerald-300 shadow-sm" />
+                            </div>
+                            
+                            <div>
+                              <h4 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                {app.name}
+                              </h4>
+                              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                {meta.desc}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
+                            <span className="text-[10px] font-mono text-slate-400 truncate w-32">
+                              {app.url}
+                            </span>
+                            <a
+                              href={appUrl}
+                              className="text-xs font-bold text-blue-600 group-hover:text-blue-800 flex items-center gap-1 hover:underline"
+                            >
+                              {meta.linkText}
+                              <span>→</span>
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* TAB 2: USER PROFILES */}
+          {/* ── TAB 2: USER PROFILES ── */}
           {activeTab === "users" && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
+            <div className="space-y-6 max-w-5xl mx-auto">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                
+                {/* Tab Header */}
+                <div className="p-6 border-b border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">User Profiles (USRDTA)</h2>
-                    <p className="text-slate-500 text-sm">Query and list accounts registered on library QGPL</p>
+                    <h2 className="text-xl font-bold text-slate-900">User Profiles (USRDTA)</h2>
+                    <p className="text-slate-500 text-xs mt-0.5">Query account indexes registered under system library QGPL</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      placeholder="Search User Account..."
-                      className="border border-slate-300 rounded-lg p-2.5 text-sm w-64 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={userQuery}
-                      onChange={(e) => setUserQuery(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          fetchUsersList(userQuery);
-                        }
-                      }}
-                    />
+                  <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+                    <div className="relative w-full sm:w-64">
+                      <input
+                        type="text"
+                        placeholder="Search Profile ID..."
+                        className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                        value={userQuery}
+                        onChange={(e) => setUserQuery(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") fetchUsersList(userQuery);
+                        }}
+                      />
+                      <div className="absolute left-3 top-2.5">
+                        <IconSearch />
+                      </div>
+                    </div>
                     <button
                       onClick={() => fetchUsersList(userQuery)}
                       disabled={usersLoading}
-                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:bg-blue-400"
+                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4.5 py-2 text-sm font-semibold transition-colors disabled:bg-blue-400 shrink-0"
                     >
                       {usersLoading ? "Querying..." : "Search"}
                     </button>
@@ -360,96 +446,179 @@ export default function DashboardPage() {
                 </div>
 
                 {usersError && (
-                  <div className="bg-red-50 text-red-700 border border-red-200 p-4 rounded-lg text-sm mb-4">
+                  <div className="mx-6 mt-6 bg-red-50 text-red-700 border border-red-200 px-4 py-3 rounded-xl text-xs">
                     {usersError}
                   </div>
                 )}
 
+                {/* Table Content */}
                 {usersLoading ? (
-                  <div className="py-12 text-center text-slate-500">
-                    <span className="animate-spin inline-block h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mr-2"></span>
-                    Querying system tables...
+                  <div className="py-20 text-center text-slate-500">
+                    <div className="h-8 w-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-3" />
+                    <p className="text-xs text-slate-400">Querying system tables over ODBC connection...</p>
                   </div>
                 ) : users.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg">
-                    No user accounts found matching your query.
+                  <div className="py-16 text-center text-slate-400">
+                    <div className="h-12 w-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center mx-auto mb-3">
+                      <IconSearch />
+                    </div>
+                    <p className="text-xs">No active profiles matching the search criteria.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider border-b">
-                          <th className="p-3">User Profile (UPUPRF)</th>
-                          <th className="p-3">Description / Name (UPTEXT)</th>
-                          <th className="p-3">Status (UPSTAT)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {users.map((u, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50 border-b">
-                            <td className="p-3 font-mono font-bold text-blue-600">{u.UPUPRF || "N/A"}</td>
-                            <td className="p-3 text-slate-700 font-medium">{u.UPTEXT || u.TEXT || "N/A"}</td>
-                            <td className="p-3 text-xs text-slate-400 font-mono">
-                              {u.UPSTAT}
-                              {/* {Object.entries(u)
-                                .filter(([k]) => k !== "UPUPRF" && k !== "UPTEXT" && k !== "TEXT")
-                                .map(([k, v]) => `${k}: ${v}`)
-                                .join(" | ") || "None"} */}
-                            </td>
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100">
+                            <th className="p-4">Profile Code (UPUPRF)</th>
+                            <th className="p-4">Description Text (UPTEXT)</th>
+                            <th className="p-4">Status Flag</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {users.map((u, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/60 border-b border-slate-100 transition-colors">
+                              <td className="p-4 font-mono font-bold text-blue-600 text-sm">{u.UPUPRF || "N/A"}</td>
+                              <td className="p-4 text-slate-700 font-medium text-sm">{u.UPTEXT || u.TEXT || "N/A"}</td>
+                              <td className="p-4">
+                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  u.UPSTAT === "ENABLED" || u.UPSTAT === "*ENABLED" 
+                                    ? "bg-emerald-50 text-emerald-700" 
+                                    : "bg-slate-100 text-slate-600"
+                                }`}>
+                                  <span className={`h-1.5 w-1.5 rounded-full ${
+                                    u.UPSTAT === "ENABLED" || u.UPSTAT === "*ENABLED" 
+                                      ? "bg-emerald-500" 
+                                      : "bg-slate-400"
+                                  }`} />
+                                  {u.UPSTAT || "UNKNOWN"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Footer */}
+                    {totalPages > 1 && (
+                      <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                        <p className="text-xs text-slate-500">
+                          Page <span className="font-semibold text-slate-700">{currentPage}</span> of <span className="font-semibold text-slate-700">{totalPages}</span>
+                        </p>
+                        <div className="flex gap-1.5">
+                          <button
+                            disabled={currentPage === 1}
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            className="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Prev
+                          </button>
+                          <button
+                            disabled={currentPage === totalPages}
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            className="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           )}
 
-          {/* TAB 3: ACTIVE JOBS */}
+          {/* ── TAB 3: ACTIVE JOBS ── */}
           {activeTab === "jobs" && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
+            <div className="space-y-6 max-w-5xl mx-auto">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                
+                {/* Header block */}
+                <div className="p-6 border-b border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Work with Active Jobs (WRKACTJOB)</h2>
-                    <p className="text-slate-500 text-sm">Monitor active server subsystems and interactive processes</p>
+                    <h2 className="text-xl font-bold text-slate-900">Work with Active Jobs (WRKACTJOB)</h2>
+                    <p className="text-slate-500 text-xs mt-0.5">Real-time status of interactive pools and subsystems</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      // Simulate a refresh by changing cpu slightly
-                      setActiveJobs(jobs => jobs.map(j => ({
-                        ...j,
-                        cpu: (Math.random() * 2).toFixed(1)
-                      })));
-                    }}
-                    className="border border-slate-300 hover:bg-slate-50 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
-                  >
-                    Refresh
-                  </button>
+                  <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+                    <div className="relative w-full sm:w-56">
+                      <input
+                        type="text"
+                        placeholder="Search Active Jobs..."
+                        className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                        value={jobSearchQuery}
+                        onChange={(e) => setJobSearchQuery(e.target.value)}
+                      />
+                      <div className="absolute left-3 top-2 flex items-center">
+                        <IconSearch />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveJobs(jobs => jobs.map(j => ({
+                          ...j,
+                          cpu: (Math.random() * 2).toFixed(1)
+                        })));
+                      }}
+                      className="border border-slate-300 hover:bg-slate-50 rounded-lg px-4 py-2 text-xs font-semibold transition-colors shrink-0"
+                    >
+                      Refresh List
+                    </button>
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto bg-slate-950 text-green-400 font-mono p-6 rounded-lg border border-slate-800 shadow-inner">
-                  <table className="w-full text-left">
+                {/* Table / grid container */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="text-slate-500 border-b border-slate-800 pb-2">
-                        <th className="pb-3 pr-4 font-bold">Subsystem/Job</th>
-                        <th className="pb-3 pr-4 font-bold">User</th>
-                        <th className="pb-3 pr-4 font-bold">Type</th>
-                        <th className="pb-3 pr-4 font-bold">Status</th>
-                        <th className="pb-3 pr-4 font-bold">CPU %</th>
+                      <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100">
+                        <th className="p-4">Subsystem / Job</th>
+                        <th className="p-4">System User</th>
+                        <th className="p-4">Job Type</th>
+                        <th className="p-4">Status Flag</th>
+                        <th className="p-4">CPU Utilization</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {activeJobs.map((j, idx) => (
-                        <tr key={idx} className="hover:bg-slate-900 border-b border-slate-900">
-                          <td className="py-2.5 text-white">{j.job}</td>
-                          <td className="py-2.5 text-yellow-500">{j.user}</td>
-                          <td className="py-2.5 text-sky-400">{j.type}</td>
-                          <td className={`py-2.5 font-bold ${j.status === "RUN" ? "text-green-500" : "text-amber-500"}`}>{j.status}</td>
-                          <td className="py-2.5 text-emerald-400">{j.cpu}</td>
+                      {filteredJobs.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-16 text-center text-slate-400 text-xs">
+                            No active jobs matching filter criteria.
+                          </td>
                         </tr>
-                      ))}
+                      ) : (
+                        filteredJobs.map((j, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/60 border-b border-slate-100 transition-colors">
+                            <td className="p-4 font-mono font-bold text-slate-900 text-sm">{j.job}</td>
+                            <td className="p-4 text-slate-600 font-mono text-xs">{j.user}</td>
+                            <td className="p-4 text-slate-500 font-mono text-xs">{j.type}</td>
+                            <td className="p-4">
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                j.status === "RUN" 
+                                  ? "bg-emerald-50 text-emerald-700" 
+                                  : "bg-amber-50 text-amber-700"
+                              }`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${
+                                  j.status === "RUN" ? "bg-emerald-500" : "bg-amber-400"
+                                }`} />
+                                {j.status}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-20 bg-slate-100 h-1.5 rounded-full overflow-hidden shrink-0">
+                                  <div 
+                                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                                    style={{ width: `${Math.min(Number(j.cpu) * 50, 100)}%` }}
+                                  />
+                                </div>
+                                <span className="font-mono text-xs text-slate-600 font-semibold">{j.cpu}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -457,47 +626,76 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* TAB 4: SPOOLED FILES */}
+          {/* ── TAB 4: SPOOLED FILES ── */}
           {activeTab === "spool" && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Work with Spooled Files (WRKSPLF)</h2>
-                  <p className="text-slate-500 text-sm mb-6">Manage system reports, printer files, and spool logs</p>
+            <div className="space-y-6 max-w-5xl mx-auto">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                
+                {/* Header block */}
+                <div className="p-6 border-b border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Work with Spooled Files (WRKSPLF)</h2>
+                    <p className="text-slate-500 text-xs mt-0.5">Access printer documents, logs, and compiled logs</p>
+                  </div>
+                  <div className="relative w-full sm:w-60 shrink-0">
+                    <input
+                      type="text"
+                      placeholder="Search Spool Logs..."
+                      className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                      value={spoolSearchQuery}
+                      onChange={(e) => setSpoolSearchQuery(e.target.value)}
+                    />
+                    <div className="absolute left-3 top-2 flex items-center">
+                      <IconSearch />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider border-b">
-                        <th className="p-3">Spool File</th>
-                        <th className="p-3">File Number</th>
-                        <th className="p-3">Job Name</th>
-                        <th className="p-3">User</th>
-                        <th className="p-3">Creation Date</th>
-                        <th className="p-3">Pages</th>
-                        <th className="p-3 text-right">Actions</th>
+                      <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100">
+                        <th className="p-4">Spool Name</th>
+                        <th className="p-4">File ID</th>
+                        <th className="p-4">Linked Job</th>
+                        <th className="p-4">Owner User</th>
+                        <th className="p-4">Created Date</th>
+                        <th className="p-4">Pages</th>
+                        <th className="p-4 text-right">Download</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {spoolFiles.map((f, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 border-b">
-                          <td className="p-3 font-mono font-bold text-slate-800">{f.name}</td>
-                          <td className="p-3 text-slate-600 font-mono">{f.file}</td>
-                          <td className="p-3 text-slate-600 font-mono">{f.job}</td>
-                          <td className="p-3 text-slate-600">{f.user}</td>
-                          <td className="p-3 text-slate-600 font-mono">{f.date}</td>
-                          <td className="p-3 text-slate-600 font-mono">{f.pages}</td>
-                          <td className="p-3 text-right">
-                            <button
-                              onClick={() => alert(`Opening Spool ${f.name} (${f.file}) in viewer`)}
-                              className="text-blue-600 hover:text-blue-800 text-sm font-semibold hover:underline"
-                            >
-                              View PDF
-                            </button>
+                      {filteredSpool.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-16 text-center text-slate-400 text-xs">
+                            No spooled logs matching query criteria.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        filteredSpool.map((f, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/60 border-b border-slate-100 transition-colors">
+                            <td className="p-4 font-mono font-bold text-slate-800 text-sm flex items-center gap-2">
+                              <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              {f.name}
+                            </td>
+                            <td className="p-4 text-slate-500 font-mono text-xs">{f.file}</td>
+                            <td className="p-4 text-slate-600 font-mono text-xs">{f.job}</td>
+                            <td className="p-4 text-slate-600 text-sm">{f.user}</td>
+                            <td className="p-4 text-slate-500 font-mono text-xs">{f.date}</td>
+                            <td className="p-4 text-slate-500 font-mono text-xs">{f.pages}</td>
+                            <td className="p-4 text-right">
+                              <button
+                                onClick={() => alert(`Opening Spool ${f.name} in PDF format`)}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                View PDF
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -505,35 +703,39 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* TAB 5: SETTINGS */}
+          {/* ── TAB 5: SYSTEM SETTINGS ── */}
           {activeTab === "settings" && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm max-w-2xl">
-                <h2 className="text-2xl font-bold text-slate-900 mb-6">System Settings</h2>
+            <div className="space-y-6 max-w-2xl mx-auto">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">System Information</h2>
+                  <p className="text-slate-500 text-xs mt-0.5">ODBC communication and default settings</p>
+                </div>
 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="font-semibold text-slate-700">Default Library</span>
-                    <span className="font-mono text-slate-500">QGPL</span>
-                  </div>
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="font-semibold text-slate-700">ODBC Driver</span>
-                    <span className="font-mono text-slate-500">iSeries Access ODBC Driver</span>
-                  </div>
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="font-semibold text-slate-700">System IP / Host</span>
-                    <span className="font-mono text-slate-500">10.30.0.200</span>
-                  </div>
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="font-semibold text-slate-700">Session Expiration</span>
-                    <span className="font-mono text-slate-500">1 Hour</span>
-                  </div>
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="font-semibold text-slate-700">SSL Connection</span>
-                    <span className="bg-green-150 text-green-700 font-bold border border-green-200 px-2 py-0.5 rounded text-xs font-mono">
-                      ENABLED
-                    </span>
-                  </div>
+                <div className="divide-y divide-slate-100">
+                  {[
+                    { label: "Default System Library", val: "QGPL", type: "mono" },
+                    { label: "ODBC System Target", val: process.env.NEXT_PUBLIC_ODBC_SYSTEM || "10.30.0.200", type: "mono" },
+                    { label: "ODBC Driver Installed", val: "iSeries Access ODBC Driver", type: "text" },
+                    { label: "Portal Connection Port", val: "3008", type: "mono" },
+                    { label: "Session Expiration Mode", val: "1 Hour (JWT Tokens)", type: "text" },
+                    { label: "SSL Validation", val: "ENABLED", type: "badge" },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center py-3.5">
+                      <span className="font-semibold text-slate-700 text-sm">{item.label}</span>
+                      {item.type === "mono" && (
+                        <span className="font-mono text-slate-500 text-xs bg-slate-150 px-2 py-0.5 rounded">{item.val}</span>
+                      )}
+                      {item.type === "text" && (
+                        <span className="text-slate-600 text-sm font-medium">{item.val}</span>
+                      )}
+                      {item.type === "badge" && (
+                        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100 px-2.5 py-0.5 rounded-full">
+                          {item.val}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
