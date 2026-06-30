@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ReactElement } from "react";
 
-type Tab = "dashboard" | "generate" | "headers" | "details";
+type Tab = "dashboard" | "generate" | "headers" | "details" | "notify";
 
 interface Application { id: number; name: string; url: string; }
 
@@ -26,8 +26,8 @@ function formatForAPI(dateInput: string): string {
 function formatDisplay(dateInput: string): string {
     if (!dateInput) return "";
     const [y, m, d] = dateInput.split("-");
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    return `${months[Number(m)-1]} ${Number(d)}, ${y}`;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[Number(m) - 1]} ${Number(d)}, ${y}`;
 }
 
 const formatCurrency = (value: number) => {
@@ -122,6 +122,12 @@ export default function SendEmailPage() {
     const [detailsTotal, setDetailsTotal] = useState(0);
     const detailsLimit = 10;
 
+    // Email notifications state
+    const [notifyDate, setNotifyDate] = useState("");
+    const [notifyLoading, setNotifyLoading] = useState(false);
+    const [notifyResult, setNotifyResult] = useState<{ total: number; sent: number; skipped: number; failed: number; logs: string[] } | null>(null);
+    const [notifyError, setNotifyError] = useState("");
+
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) { router.push("/"); return; }
@@ -174,6 +180,28 @@ export default function SendEmailPage() {
             setStatusMsg("");
         } finally {
             setProcessing(false);
+        }
+    };
+
+    // ─── Send notifications ───────────────────────────────────────────────────
+    const handleSendNotifications = async () => {
+        if (!notifyDate) { setNotifyError("Please select a release date."); return; }
+        setNotifyError("");
+        setNotifyResult(null);
+        setNotifyLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/send-email/send-notifications`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ date: notifyDate }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Request failed");
+            setNotifyResult(data);
+        } catch (err: any) {
+            setNotifyError(err.message || "An error occurred");
+        } finally {
+            setNotifyLoading(false);
         }
     };
 
@@ -276,6 +304,7 @@ export default function SendEmailPage() {
                             { id: "generate", label: "Generate Email List", Icon: IconMail },
                             { id: "headers", label: "Payment Headers", Icon: IconHeaders },
                             { id: "details", label: "Payment Details", Icon: IconDetails },
+                            { id: "notify", label: "Email Notifications", Icon: IconMail },
                         ] as { id: Tab; label: string; Icon: () => ReactElement }[]).map(({ id, label, Icon }) => (
                             <button key={id} onClick={() => setActiveTab(id)}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 ${activeTab === id
@@ -443,7 +472,7 @@ export default function SendEmailPage() {
                     {activeTab === "headers" && (
                         <div className="space-y-6 max-w-6xl mx-auto">
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                
+
                                 {/* Search Header */}
                                 <div className="p-6 border-b border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
@@ -560,7 +589,7 @@ export default function SendEmailPage() {
                     {activeTab === "details" && (
                         <div className="space-y-6 max-w-6xl mx-auto">
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                
+
                                 {/* Search Header */}
                                 <div className="p-6 border-b border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
@@ -668,6 +697,76 @@ export default function SendEmailPage() {
                                     </>
                                 )}
                             </div>
+                        </div>
+                    )}
+                    {/* ── EMAIL NOTIFICATIONS TAB ── */}
+                    {activeTab === "notify" && (
+                        <div className="max-w-2xl mx-auto space-y-6">
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-900">Email Notifications</h1>
+                                <p className="text-slate-500 text-sm mt-1">Send payment notification emails to vendors for a selected release date.</p>
+                            </div>
+
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Release Date</label>
+                                    <input
+                                        type="date"
+                                        value={notifyDate}
+                                        onChange={e => { setNotifyDate(e.target.value); setNotifyError(""); setNotifyResult(null); }}
+                                        className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                                    />
+                                    {notifyDate && (
+                                        <p className="mt-1.5 text-xs text-slate-500">Selected: <span className="font-semibold text-blue-600">{formatDisplay(notifyDate)}</span></p>
+                                    )}
+                                </div>
+
+                                {notifyError && (
+                                    <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{notifyError}</div>
+                                )}
+
+                                <button
+                                    disabled={!notifyDate || notifyLoading}
+                                    onClick={handleSendNotifications}
+                                    className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-all shadow-md text-sm">
+                                    {notifyLoading ? <><IconSpinner /> Sending Emails...</> : <><IconMail /> Send Notifications</>}
+                                </button>
+                            </div>
+
+                            {/* Results card */}
+                            {notifyResult && (
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <div className="p-5 border-b border-slate-100">
+                                        <p className="font-bold text-slate-800 text-sm">Notification Results — {formatDisplay(notifyDate)}</p>
+                                    </div>
+                                    <div className="grid grid-cols-4 divide-x divide-slate-100">
+                                        {[
+                                            { label: "Total", value: notifyResult.total, color: "text-slate-800" },
+                                            { label: "Sent", value: notifyResult.sent, color: "text-emerald-600" },
+                                            { label: "Skipped", value: notifyResult.skipped, color: "text-amber-600" },
+                                            { label: "Failed", value: notifyResult.failed, color: "text-red-600" },
+                                        ].map(stat => (
+                                            <div key={stat.label} className="py-5 flex flex-col items-center gap-1">
+                                                <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                                                <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">{stat.label}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* Log viewer */}
+                                    <div className="border-t border-slate-100 p-4">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Activity Log</p>
+                                        <div className="bg-slate-950 rounded-lg p-4 max-h-64 overflow-y-auto font-mono text-xs space-y-1">
+                                            {notifyResult.logs.map((line, i) => {
+                                                const color = line.startsWith("[SENT]") ? "text-emerald-400"
+                                                    : line.startsWith("[FAIL]") ? "text-red-400"
+                                                        : line.startsWith("[SKIP]") ? "text-amber-400"
+                                                            : "text-slate-400";
+                                                return <p key={i} className={color}>{line}</p>;
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </main>
