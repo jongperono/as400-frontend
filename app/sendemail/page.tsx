@@ -525,6 +525,7 @@ export default function SendEmailPage() {
                                                         <th className="p-4">Email Address</th>
                                                         <th className="p-4 text-right">Total Net</th>
                                                         <th className="p-4">Release Date</th>
+                                                        <th className="p-4 text-center">Email Status</th>
                                                         <th className="p-4 text-center">Invoice Lines</th>
                                                     </tr>
                                                 </thead>
@@ -543,6 +544,29 @@ export default function SendEmailPage() {
                                                             <td className="p-4 text-slate-600 text-sm truncate max-w-xs">{h.email_address || "—"}</td>
                                                             <td className="p-4 text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(h.total_amount)}</td>
                                                             <td className="p-4 text-slate-500 text-xs font-mono">{formatDate(h.release_date)}</td>
+                                                            <td className="p-4 text-center">
+                                                                {(() => {
+                                                                    const s = h.status || "pending";
+                                                                    const badge: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+                                                                        sent: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", label: "Sent" },
+                                                                        failed: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500", label: "Failed" },
+                                                                        skipped: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400", label: "Skipped" },
+                                                                        pending: { bg: "bg-slate-100", text: "text-slate-500", dot: "bg-slate-400", label: "Pending" },
+                                                                    };
+                                                                    const b = badge[s] ?? badge.pending;
+                                                                    return (
+                                                                        <div className="flex flex-col items-center gap-1">
+                                                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${b.bg} ${b.text}`}>
+                                                                                <span className={`h-1.5 w-1.5 rounded-full ${b.dot}`} />
+                                                                                {b.label}
+                                                                            </span>
+                                                                            {h.sent_at && (
+                                                                                <span className="text-[10px] text-slate-400 font-mono">{formatDate(h.sent_at)}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </td>
                                                             <td className="p-4 text-center">
                                                                 <button
                                                                     onClick={() => viewDetailsForCheck(h.check_number)}
