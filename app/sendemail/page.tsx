@@ -676,6 +676,8 @@ export default function SendEmailPage() {
                                                         <th className="p-4">Store Name</th>
                                                         <th className="p-4 text-right">Net Amount</th>
                                                         <th className="p-4">Invoice Date</th>
+                                                        <th className="p-4">PO Number</th>
+                                                        <th className="p-4">Rebate Type</th>
                                                         <th className="p-4">Company</th>
                                                         <th className="p-4">Vendor</th>
                                                     </tr>
@@ -688,6 +690,13 @@ export default function SendEmailPage() {
                                                             <td className="p-4 text-slate-700 text-sm font-semibold">{d.store_name}</td>
                                                             <td className="p-4 text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(d.total_net)}</td>
                                                             <td className="p-4 text-slate-500 text-xs font-mono">{formatDate(d.invoice_date)}</td>
+                                                            <td className="p-4 font-mono text-slate-600 text-xs">{d.po_number || "—"}</td>
+                                                            <td className="p-4 text-xs">
+                                                                {d.rebate_type
+                                                                    ? <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 text-[11px] font-semibold border border-violet-100">{d.rebate_type}</span>
+                                                                    : <span className="text-slate-300">—</span>
+                                                                }
+                                                            </td>
                                                             <td className="p-4 text-slate-600 font-mono text-xs">Code: {d.company_number}</td>
                                                             <td className="p-4 text-slate-600 font-mono text-xs">ID: {d.vendor_number}</td>
                                                         </tr>
