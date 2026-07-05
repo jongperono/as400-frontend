@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ReactElement } from "react";
+import { apiFetch } from "@/lib/apiFetch";
 
 type Tab = "dashboard" | "generate" | "headers" | "details" | "notify";
 
@@ -114,6 +115,10 @@ export default function SendEmailPage() {
     const [headersTotal, setHeadersTotal] = useState(0);
     const headersLimit = 10;
 
+    // Resend state: tracks which check numbers are currently being resent
+    const [resendingChecks, setResendingChecks] = useState<Record<string, boolean>>({});
+    const [resendResults, setResendResults] = useState<Record<string, { ok: boolean; msg: string }>>({});
+
     // Details pagination & search
     const [details, setDetails] = useState<any[]>([]);
     const [detailsSearch, setDetailsSearch] = useState("");
@@ -202,6 +207,23 @@ export default function SendEmailPage() {
             setNotifyError(err.message || "An error occurred");
         } finally {
             setNotifyLoading(false);
+        }
+    };
+
+    // ─── Resend single check ──────────────────────────────────────────────────
+    const handleResend = async (checkNumber: string) => {
+        setResendingChecks(prev => ({ ...prev, [checkNumber]: true }));
+        setResendResults(prev => { const n = { ...prev }; delete n[checkNumber]; return n; });
+        try {
+            const res = await apiFetch(`${API_URL}/send-email/resend/${encodeURIComponent(checkNumber)}`, { method: "POST" });
+            const data = await res.json();
+            if (!res.ok) throw new Error((data as { error?: string }).error || "Resend failed");
+            setResendResults(prev => ({ ...prev, [checkNumber]: { ok: true, msg: "Sent" } }));
+            fetchHeadersList(headersPage, headersSearch);
+        } catch (err: any) {
+            setResendResults(prev => ({ ...prev, [checkNumber]: { ok: false, msg: err.message || "Error" } }));
+        } finally {
+            setResendingChecks(prev => ({ ...prev, [checkNumber]: false }));
         }
     };
 
@@ -527,6 +549,7 @@ export default function SendEmailPage() {
                                                         <th className="p-4">Release Date</th>
                                                         <th className="p-4 text-center">Email Status</th>
                                                         <th className="p-4 text-center">Invoice Lines</th>
+                                                        <th className="p-4 text-center">Resend</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -574,6 +597,33 @@ export default function SendEmailPage() {
                                                                 >
                                                                     View Details →
                                                                 </button>
+                                                            </td>
+                                                            <td className="p-4 text-center">
+                                                                <div className="flex flex-col items-center gap-1">
+                                                                    <button
+                                                                        onClick={() => handleResend(h.check_number)}
+                                                                        disabled={resendingChecks[h.check_number]}
+                                                                        title="Resend email"
+                                                                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                    >
+                                                                        {resendingChecks[h.check_number] ? (
+                                                                            <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                                                            </svg>
+                                                                        ) : (
+                                                                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                                            </svg>
+                                                                        )}
+                                                                        {resendingChecks[h.check_number] ? "Sending…" : "Resend"}
+                                                                    </button>
+                                                                    {resendResults[h.check_number] && (
+                                                                        <span className={`text-[10px] font-semibold ${resendResults[h.check_number].ok ? "text-emerald-600" : "text-red-500"}`}>
+                                                                            {resendResults[h.check_number].ok ? "✓ Sent" : `✗ ${resendResults[h.check_number].msg}`}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     ))}
