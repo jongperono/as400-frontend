@@ -165,9 +165,8 @@ export default function SendEmailPage() {
 
         try {
             tick(20, "Connecting to AS400...");
-            const res = await fetch(`${API_URL}/send-email/released-checks`, {
+            const res = await apiFetch(`${API_URL}/send-email/released-checks`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ date: formatForAPI(releaseDate) }),
             });
             tick(70, "Saving records to database...");
@@ -195,9 +194,8 @@ export default function SendEmailPage() {
         setNotifyResult(null);
         setNotifyLoading(true);
         try {
-            const res = await fetch(`${API_URL}/send-email/send-notifications`, {
+            const res = await apiFetch(`${API_URL}/send-email/send-notifications`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ date: notifyDate }),
             });
             const data = await res.json();
@@ -236,7 +234,7 @@ export default function SendEmailPage() {
                 limit: String(headersLimit),
                 search: query,
             });
-            const res = await fetch(`${API_URL}/send-email/payment-headers?${params.toString()}`);
+            const res = await apiFetch(`${API_URL}/send-email/payment-headers?${params.toString()}`);
             if (!res.ok) throw new Error("Failed to load headers");
             const data = await res.json();
             setHeaders(data.rows || []);
@@ -257,7 +255,7 @@ export default function SendEmailPage() {
                 limit: String(detailsLimit),
                 search: query,
             });
-            const res = await fetch(`${API_URL}/send-email/payment-details?${params.toString()}`);
+            const res = await apiFetch(`${API_URL}/send-email/payment-details?${params.toString()}`);
             if (!res.ok) throw new Error("Failed to load details");
             const data = await res.json();
             setDetails(data.rows || []);
