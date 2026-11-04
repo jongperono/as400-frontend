@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ReactElement } from "react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Tab = "overview" | "users" | "jobs" | "spool" | "settings";
 
