@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import dotenv from "dotenv";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
-// dotenv.config();
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LoginForm() {
@@ -11,17 +11,17 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { login } = useAuth();
 
-  async function handleSubmit(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
-
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -33,14 +33,15 @@ export default function LoginForm() {
         throw new Error(data.error || "Login failed");
       }
 
-      // Save token and redirect
-      localStorage.setItem("token", data.token);
-      localStorage.setItem(
-        "applications",
-        JSON.stringify(data.applications)
-      );
-      // alert("Login successful!");
-      window.location.href = "/dashboard";
+      // Use the auth context to set authentication
+      login(data.token, {
+        username: data.user.username,
+        applications: data.applications,
+      });
+
+      // Redirect to the page user was trying to access, or dashboard
+      const redirectTo = searchParams.get("redirect") || "/dashboard";
+      router.push(redirectTo);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -58,9 +59,7 @@ export default function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-black">
-            Username
-          </label>
+          <label className="mb-1 block text-black">Username</label>
 
           <input
             type="text"
@@ -72,9 +71,7 @@ export default function LoginForm() {
         </div>
 
         <div>
-          <label className="mb-1 block text-black">
-            Password
-          </label>
+          <label className="mb-1 block text-black">Password</label>
 
           <input
             type="password"
